@@ -3,7 +3,7 @@ pragma solidity ^0.4.0;
 contract Remittance {
 //0x98a85567db3806aefd03ce84271eccfed04bf1323abc6f9ee0e86230ddd543c2
     
-    address _owner;
+    address owner;
  
     struct Deposit
     {
@@ -12,23 +12,13 @@ contract Remittance {
         uint deadline;
     }    
 
-    mapping(address => Deposit) _repository;
-    uint    public _limit;
+    mapping(address => Deposit) public repository;
+    uint    public limit;
  
     function Remittance(uint durationContract)
     {
-        _owner = msg.sender;
-        _limit = block.timestamp + durationContract;
-    }
-
-    function getCreditAmount(address depositor)  public  returns(uint)
-    {
-        return _repository[depositor].amount;
-    }
-    
-    function getSecret(address depositor) public returns (bytes32)
-    {
-        return _repository[depositor].secret;
+        owner = msg.sender;
+        limit = block.number + durationContract;
     }
 
     event LogNewCredit(address depositor, uint amount);
@@ -36,35 +26,34 @@ contract Remittance {
     event LogRefund(address beneficiary, uint amount);
     event LogSuicide(address beneficiary, uint amount);
 
+    function GetAmount(address theAccount) public returns(uint)
+    {
+        return repository[theAccount].amount;
+    }
+
     // owner can add credit to the contract any time
-    function addCredit(bytes32 theSecret, uint theDeadline) public payable returns (bool)
+    function AddCredit(bytes32 theSecret, uint theDeadline) public payable 
     {
         if (theSecret.length == 0 || msg.value == 0)
             throw;
 
-        if (theDeadline == 0)
+        if (theDeadline == 0 || theDeadline + block.number > limit)
             throw;
 
-        if (block.timestamp > _limit)
-            throw;
-
-        Deposit storage theDeposit = _repository[msg.sender];
+        Deposit storage theDeposit = repository[msg.sender];
 
         theDeposit.secret = theSecret;
         theDeposit.amount = msg.value;
         theDeposit.deadline = theDeadline + block.number;
         
         LogNewCredit(msg.sender, msg.value);
-        return true; // owner will maintain a list of depositors outside the contract
+        // owner will maintain a list of depositors outside the contract
     }
 
     
-    function retrieveAmount(string password1, string password2, address depositor) public returns (bool)
+    function RetrieveAmount(string password1, string password2, address depositor)
     {
-        if (block.timestamp > _limit)
-            throw;
-
-        Deposit storage theDeposit = _repository[depositor];
+        Deposit storage theDeposit = repository[depositor];
         
         if (theDeposit.amount == 0 || theDeposit.deadline < block.number)
             throw;
@@ -81,14 +70,14 @@ contract Remittance {
         theDeposit.secret = 0;
         
         LogRetrievalSucceeded(msg.sender,  theDeposit.amount);            
-        return true;
     }
     
+    // In case the limit is reached, 
     function Refund(address depositor) public returns(bool)
     {
-        Deposit storage theDeposit = _repository[depositor];
+        Deposit storage theDeposit = repository[depositor];
 
-        if (theDeposit.amount == 0)
+        if (theDeposit.amount == 0 || theDeposit.deadline > block.number)
             throw;
 
         if (! depositor.send(theDeposit.amount)) 
@@ -99,6 +88,6 @@ contract Remittance {
 
     function suicide() public returns (bool)
     {
-        selfdestruct(_owner); // in case there is a self destroy owner will receive the ether and dispatch to despositors
+        selfdestruct(owner); // in case there is a self destroy owner will receive the ether 
     }    
 }
