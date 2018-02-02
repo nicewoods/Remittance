@@ -52,38 +52,34 @@ contract Remittance {
 
     
     function RetrieveAmount(string password1, string password2, address depositor)
-    {
-        Deposit storage theDeposit = repository[depositor];
-        
-        if (theDeposit.amount == 0 || theDeposit.deadline < block.number)
+    {     
+        if (repository[depositor].amount == 0 || repository[depositor].deadline < block.number)
             throw;
         
         var proof = keccak256(password1, password2);
         
-        if (proof != theDeposit.secret)
+        if (proof != repository[depositor].secret)
             throw;
     
-        if (! msg.sender.send(theDeposit.amount))
+        if (! msg.sender.send(repository[depositor].amount))
             throw;
         
-        theDeposit.amount = 0;
-        theDeposit.secret = 0;
+        repository[depositor].amount = 0;
+        repository[depositor].secret = 0;
         
-        LogRetrievalSucceeded(msg.sender,  theDeposit.amount);            
+        LogRetrievalSucceeded(msg.sender,  repository[depositor].amount);            
     }
     
     // In case the limit is reached, 
     function Refund(address depositor) public returns(bool)
     {
-        Deposit storage theDeposit = repository[depositor];
-
-        if (theDeposit.amount == 0 || theDeposit.deadline > block.number)
+        if (repository[depositor].amount == 0 || repository[depositor].deadline > block.number)
             throw;
 
-        if (! depositor.send(theDeposit.amount)) 
+        if (! depositor.send(repository[depositor].amount)) 
             throw;
 
-        LogRefund(depositor, theDeposit.amount);
+        LogRefund(depositor, repository[depositor].amount);
     }
 
     function suicide() public returns (bool)
